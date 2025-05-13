@@ -1,0 +1,39 @@
+# پوشه‌ها و فایل‌های مربوط به وابستگی‌های Composer
+/vendor/
+composer.lock
+
+# فایل‌های مربوط به سیستم‌عامل و IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# فایل‌های لاگ
+*.log
+logs/
+
+# فایل‌های مربوط به PHPUnit (کش و گزارش‌ها)
+.phpunit.result.cache
+.phpunit.cache/
+coverage/
+build/
+
+# فایل‌های محلی پیکربندی (اگر در پکیج استفاده می‌کنید، که معمولاً نباید)
+.env
+.env.*
+!.env.example
+
+# فایل‌های مربوط به NPM/Yarn (اگر برای پکیج خود فرانت‌اند هم دارید و استفاده می‌کنید)
+/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# فایل‌های موقت یا کش سیستم
+*.tmp
+*.swp
+*~

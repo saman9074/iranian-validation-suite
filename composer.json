@@ -1,0 +1,52 @@
+{
+    "name": "saman9074/iranian-validation-suite",
+    "description": "مجموعه جامع اعتبارسنجی و ابزارهای کمکی مرتبط با داده‌های ایرانی برای فریم‌ورک لاراول.",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Ali Abdi",
+            "email": "abdi9074@gmail.com", 
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^10.0 || ^11.0 || ^12.0",
+        "illuminate/validation": "^10.0 || ^11.0 || ^12.0",
+        "illuminate/contracts": "^10.0 || ^11.0 || ^12.0",
+        "illuminate/http": "^10.0 || ^11.0 || ^12.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0 || ^9.0", 
+        "phpunit/phpunit": "^10.0 || ^11.0"     
+    },
+    "autoload": {
+        "psr-4": {
+            "Saman9074\\IranianValidationSuite\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Saman9074\\IranianValidationSuite\\Tests\\": "tests/"
+        }
+    },
+    "scripts": { 
+        "test": "vendor/bin/phpunit",
+        "test-coverage": "vendor/bin/phpunit --coverage-html coverage"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Saman9074\\IranianValidationSuite\\IranianValidationSuiteServiceProvider"                
+            ],
+            "aliases": {
+                "IranianValidator": "Saman9074\\IranianValidationSuite\\Facades\\IranianValidator",
+                "IranianKyc": "Saman9074\\IranianValidationSuite\\Facades\\IranianKyc"
+            }
+            
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
