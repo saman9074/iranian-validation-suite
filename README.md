@@ -18,7 +18,6 @@
     * شماره شبا (`iranian_sheba`) - بر اساس استاندارد IBAN و Mod 97-10
     * کد پستی ۱۰ رقمی ایران (`iranian_postal_code`)
     * شماره موبایل ایران (`iranian_mobile_number`) - با بررسی پیش‌شماره‌های معتبر
-    * شماره تلفن ثابت ایران (`iranian_landline_phone`) - با بررسی پیش‌شماره استان‌ها
 * پیام‌های خطای قابل ترجمه (فارسی و انگلیسی به صورت پیش‌فرض).
 * یک Facade کمکی (`IranianValidator`) برای اعتبارسنجی مستقیم مقادیر در کد.
 * نصب و راه‌اندازی آسان با استفاده از Composer و قابلیت auto-discovery لاراول.
@@ -35,7 +34,7 @@ composer require saman9074/iranian-validation-suite
 این پکیج از قابلیت auto-discovery لاراول پشتیبانی می‌کند، بنابراین Service Provider و Facade ها به طور خودکار ثبت می‌شوند.
 راه‌اندازی
 
-۱. انتشار فایل‌های زبان (اختیاری):
+# ۱. انتشار فایل‌های زبان (اختیاری):
 
 اگر می‌خواهید پیام‌های پیش‌فرض اعتبارسنجی را سفارشی کنید، می‌توانید فایل‌های زبان پکیج را منتشر کنید:
 ```bash
@@ -43,14 +42,15 @@ php artisan vendor:publish --provider="Saman9074\IranianValidationSuite\IranianV
 ```
 فایل‌های زبان در مسیر resources/lang/vendor/iranian-validation-suite (یا lang/vendor/iranian-validation-suite در نسخه‌های جدیدتر لاراول) در پروژه شما کپی خواهند شد.
 
-۲. انتشار فایل پیکربندی (اختیاری برای فاز اول):
+# ۲. انتشار فایل پیکربندی (اختیاری برای فاز اول):
 
 فایل پیکربندی این پکیج (iranian-validation-suite.php) در حال حاضر بیشتر برای تنظیمات مربوط به فاز دوم (خدمات KYC آنلاین) کاربرد دارد. با این حال، اگر می‌خواهید آن را منتشر کنید:
 ```bash
 php artisan vendor:publish --provider="Saman9074\IranianValidationSuite\IranianValidationSuiteServiceProvider" --tag="iranian-validation-suite-config"
 ```
 فایل پیکربندی در مسیر config/iranian-validation-suite.php در پروژه شما کپی خواهد شد.
-نحوه استفاده
+
+## نحوه استفاده
 استفاده از قوانین اعتبارسنجی در Validator لاراول
 
 شما می‌توانید از این قوانین اعتبارسنجی مانند سایر قوانین داخلی لاراول در آرایه $rules کنترلرها یا Form Request های خود استفاده کنید:
@@ -78,7 +78,7 @@ public function store(Request $request)
     // ادامه پردازش داده‌های معتبر
 }
 ```
-استفاده از Facade برای اعتبارسنجی مستقیم
+# استفاده از Facade برای اعتبارسنجی مستقیم
 
 پکیج یک Facade به نام IranianValidator ارائه می‌دهد که می‌توانید از آن برای بررسی مستقیم اعتبار یک مقدار استفاده کنید:
 ```bash
@@ -104,7 +104,7 @@ if (IranianValidator::isMobileNumberValid($mobile)) {
 // IranianValidator::isPostalCodeValid($value)
 // IranianValidator::isLandlinePhoneNumberValid($value)
 ```
-لیست قوانین اعتبارسنجی آفلاین
+## لیست قوانین اعتبارسنجی آفلاین
 
     iranian_national_id: اعتبارسنجی کد ملی ۱۰ رقمی ایران.
 
@@ -120,7 +120,7 @@ if (IranianValidator::isMobileNumberValid($mobile)) {
 
     iranian_landline_phone: اعتبارسنجی شماره تلفن ثابت ایران (۱۱ رقمی با احتساب صفر اول و کد استان). پیش‌شماره استان‌های معتبر بررسی می‌شوند.
 
-بومی‌سازی (Localization)
+## بومی‌سازی (Localization)
 
 پیام‌های خطا به طور پیش‌فرض برای زبان‌های فارسی (fa) و انگلیسی (en) ارائه شده‌اند. شما می‌توانید با انتشار فایل‌های زبان (همانطور که در بخش راه‌اندازی توضیح داده شد) این پیام‌ها را ویرایش کرده یا زبان‌های دیگری را اضافه کنید.
 ## مشارکت
