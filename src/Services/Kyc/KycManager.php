@@ -1,115 +1,182 @@
 <?php
 
+// File: src/Services/Kyc/KycManager.php
 namespace Saman9074\IranianValidationSuite\Services\Kyc;
 
 use Illuminate\Support\Manager;
-// use Illuminate\Contracts\Foundation\Application; // Already available via $this->app from parent constructor
-use Saman9074\IranianValidationSuite\Exceptions\KycException;
+use Illuminate\Contracts\Container\Container;
+use Illuminate\Http\Client\Factory as HttpClientFactory; // Import the actual Factory class
+use Saman9074\IranianValidationSuite\Contracts\Kyc\LivenessServiceInterface;
+use Saman9074\IranianValidationSuite\Contracts\Kyc\ShahkarServiceInterface;
+use Saman9074\IranianValidationSuite\Contracts\Kyc\IdentityServiceInterface;
+use Saman9074\IranianValidationSuite\Exceptions\Kyc\KycConfigurationException;
+
+// Import actual driver classes - ensure these paths and classes exist or are created
+use Saman9074\IranianValidationSuite\Services\Kyc\Drivers\FarashenasaLivenessDriver;
 use Saman9074\IranianValidationSuite\Services\Kyc\Drivers\UIdShahkarDriver;
 use Saman9074\IranianValidationSuite\Services\Kyc\Drivers\FinnotechShahkarDriver;
+// Example for Identity driver, you'll need to create this if it doesn't exist
+// use Saman9074\IranianValidationSuite\Services\Kyc\Drivers\UIdIdentityDriver;
+
 
 class KycManager extends Manager
 {
     /**
-     * Get the default driver name (global default).
-     *
-     * @return string
-     * @throws \InvalidArgumentException
+     * The key for accessing KYC configuration.
+     * Matches the key in your main config file (iranian-validation-suite.php).
+     * @var string
      */
-    public function getDefaultDriver(): string
-    {
-        // Use $this->app['config'] to access configuration
-        $defaultDriver = $this->app['config']->get('iranian-validation-suite.kyc.default_driver');
+    protected string $configBaseKey = 'iranian-validation-suite.kyc';
 
-        if (is_null($defaultDriver)) {
-            throw new \InvalidArgumentException("Default KYC driver (kyc.default_driver) not specified in configuration.");
-        }
-        return $defaultDriver;
+    /**
+     * KycManager constructor.
+     *
+     * @param \Illuminate\Contracts\Container\Container $container
+     */
+    public function __construct(Container $container)
+    {
+        parent::__construct($container);
     }
 
     /**
-     * Get a specific KYC service driver instance.
+     * Get the configuration for a specific provider.
+     * The provider name is the key used in the 'drivers' array in your config.
      *
-     * @param string $serviceName The name of the KYC service (e.g., 'shahkar', 'liveness').
-     * @return mixed The driver instance.
-     * @throws \InvalidArgumentException If the resolved driver name is invalid.
+     * @param string $providerName e.g., 'uid', 'finnotech', 'farashenasa'
+     * @return array
+     * @throws KycConfigurationException
      */
-    public function service(string $serviceName)
+    protected function getProviderConfig(string $providerName): array
     {
-        $serviceDriverConfigKey = "iranian-validation-suite.kyc.services.{$serviceName}.default_driver";
-        // Use $this->app['config'] here as well
-        $driverName = $this->app['config']->get($serviceDriverConfigKey, $this->getDefaultDriver());
-
-        if (is_null($driverName)) {
-            throw new \InvalidArgumentException("No driver specified for KYC service '{$serviceName}' and no global default KYC driver found.");
-        }
-        // The driver() method from the parent Manager class will handle creating/returning the driver instance.
-        return $this->driver($driverName);
-    }
-
-    /**
-     * Create an instance of the u-id driver.
-     * This method name must match the driver key in config: 'uid' -> createUidDriver
-     *
-     * @return \Saman9074\IranianValidationSuite\Services\Kyc\Drivers\UIdShahkarDriver
-     * @throws KycException
-     */
-    protected function createUidDriver(): UIdShahkarDriver
-    {
-        // Use $this->app['config']
-        $config = $this->app['config']->get('iranian-validation-suite.kyc.drivers.uid');
+        $configPath = "{$this->configBaseKey}.drivers.{$providerName}";
+        $config = $this->container['config']->get($configPath);
 
         if (is_null($config)) {
-            throw new KycException("Configuration for u-id KYC driver (drivers.uid) not found.");
+            throw new KycConfigurationException("Configuration for KYC provider '{$providerName}' not found under '{$configPath}'.");
         }
-        if (empty($config['business_id']) || empty($config['business_token'])) {
-             throw new KycException("u-id Business ID or Token is missing in the configuration for 'uid' driver.");
+        // Add provider_name to the config array for the driver's use
+        $config['provider_name'] = $providerName;
+        return $config;
+    }
+
+    /**
+     * Get the default driver name for the KYC manager.
+     * This refers to the 'default_driver' under the 'kyc' key in your config.
+     *
+     * @return string
+     * @throws KycConfigurationException
+     */
+    public function getDefaultDriver()
+    {
+        $defaultDriver = $this->container['config']->get("{$this->configBaseKey}.default_driver");
+        if (!$defaultDriver) {
+            throw new KycConfigurationException("Default KYC driver ('{$this->configBaseKey}.default_driver') is not specified in the configuration.");
         }
-        return (new UIdShahkarDriver())->setConfig($config);
+        return $defaultDriver; // This is the provider name, e.g., 'finnotech'
+    }
+
+    /**
+     * Get the default driver name for a specific service type (e.g., 'shahkar', 'liveness').
+     *
+     * @param string $serviceType e.g., 'shahkar', 'liveness'
+     * @return string The name of the provider configured as default for this service.
+     * @throws KycConfigurationException
+     */
+    protected function getDefaultDriverForService(string $serviceType): string
+    {
+        $serviceConfigPath = "{$this->configBaseKey}.services.{$serviceType}.default_driver";
+        $defaultDriverForService = $this->container['config']->get($serviceConfigPath);
+
+        if (!$defaultDriverForService) {
+            // Fallback to the overall default KYC driver if service-specific default is not set
+            $defaultDriverForService = $this->getDefaultDriver();
+            // No need to re-throw here as getDefaultDriver already throws if not set
+        }
+        return $defaultDriverForService; // This is the provider name, e.g., 'finnotech'
+    }
+
+    /**
+     * Get a driver instance for a specific KYC service type (e.g., 'shahkar', 'liveness').
+     * This resolves the default provider configured for that service type.
+     *
+     * @param string $serviceType The type of KYC service (e.g., 'shahkar', 'liveness').
+     * @return mixed The driver instance implementing the corresponding service interface.
+     * @throws KycConfigurationException
+     */
+    public function service(string $serviceType)
+    {
+        $providerName = $this->getDefaultDriverForService($serviceType);
+        // The `driver()` method of the parent Manager class will call `create[ProviderName]Driver()`.
+        return $this->driver($providerName);
+    }
+
+    /**
+     * Create an instance of the uID Shahkar driver.
+     * Method name must be 'create' + StudlyCase(provider_key_in_config) + 'Driver'.
+     * Provider key in config: 'uid'
+     *
+     * @return ShahkarServiceInterface
+     * @throws KycConfigurationException
+     */
+    protected function createUidDriver(): ShahkarServiceInterface // Or a more general interface if uid provides more
+    {
+        $config = $this->getProviderConfig('uid');
+        // Correctly resolve the Http Client Factory instance
+        return new UIdShahkarDriver($config, $this->container->make(HttpClientFactory::class));
     }
 
     /**
      * Create an instance of the Finnotech Shahkar driver.
-     * This method name must match the driver key in config: 'finnotech' -> createFinnotechDriver
+     * Provider key in config: 'finnotech'
      *
-     * @return \Saman9074\IranianValidationSuite\Services\Kyc\Drivers\FinnotechShahkarDriver
-     * @throws KycException
+     * @return ShahkarServiceInterface
+     * @throws KycConfigurationException
      */
-    protected function createFinnotechDriver(): FinnotechShahkarDriver
+    protected function createFinnotechDriver(): ShahkarServiceInterface // Or a more general interface
     {
-        $config = $this->app['config']->get('iranian-validation-suite.kyc.drivers.finnotech');
-
-        if (is_null($config)) {
-            throw new KycException("Configuration for Finnotech KYC driver (drivers.finnotech) not found.");
-        }
-        if (empty($config['client_id']) || empty($config['client_secret']) || empty($config['token_nid'])) {
-             throw new KycException("Finnotech Client ID, Client Secret, or Token NID is missing in the configuration for 'finnotech' driver.");
-        }
-        return (new FinnotechShahkarDriver())->setConfig($config);
+        $config = $this->getProviderConfig('finnotech');
+        // Correctly resolve the Http Client Factory instance
+        return new FinnotechShahkarDriver($config, $this->container->make(HttpClientFactory::class));
     }
+
+    /**
+     * Create an instance of the Farashenasa Liveness driver.
+     * Provider key in config: 'farashenasa'
+     *
+     * @return LivenessServiceInterface
+     * @throws KycConfigurationException
+     */
+    protected function createFarashenasaDriver(): LivenessServiceInterface
+    {
+        $config = $this->getProviderConfig('farashenasa');
+        // Correctly resolve the Http Client Factory instance
+        return new FarashenasaLivenessDriver($config, $this->container->make(HttpClientFactory::class));
+    }
+
+    // Add create[DriverName]Driver methods for other providers listed in your config (e.g., for identity_check)
+    // Example for a hypothetical UIdIdentityDriver:
+    // protected function createUidIdentityDriver(): IdentityServiceInterface
+    // {
+    //     // Note: This assumes 'uid' driver can also provide identity services.
+    //     // If 'uid' is only for Shahkar, you'd need a different provider key for identity or a multi-service UidDriver.
+    //     $config = $this->getProviderConfig('uid'); // Or a different config key if 'uid_identity'
+    //     return new UIdIdentityDriver($config, $this->container->make(HttpClientFactory::class));
+    // }
 
 
     /**
-     * Create an instance of the Farashenasa driver (example).
-     * This method name must match the driver key in config: 'farashenasa' -> createFarashenasaDriver
+     * Dynamically call the default driver instance.
+     * This is less useful for a multi-service manager like this one.
+     * It's better to use `service('service_type')->method()` or `driver('provider_name')->method()`.
      *
+     * @param  string  $method
+     * @param  array  $parameters
      * @return mixed
-     * @throws KycException
      */
-    protected function createFarashenasaDriver() // Driver name: 'farashenasa'
+    public function __call($method, $parameters)
     {
-        // Use $this->app['config']
-        $config = $this->app['config']->get('iranian-validation-suite.kyc.drivers.farashenasa');
-
-        if (is_null($config)) {
-            throw new KycException("Configuration for Farashenasa KYC driver (drivers.farashenasa) not found.");
-        }
-        if (empty($config['api_key'])) { // Assuming Farashenasa uses an 'api_key'
-             throw new KycException("Farashenasa API Key is missing in the configuration for 'farashenasa' driver.");
-        }
-        throw new KycException("FarashenasaDriver is not yet implemented.");
+        // Calling on the overall default driver.
+        return $this->driver()->$method(...$parameters);
     }
-
-    // The __call method is inherited from Illuminate\Support\Manager
-    // and will correctly proxy calls to the default driver instance.
 }
+?>
