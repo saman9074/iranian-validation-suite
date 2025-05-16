@@ -11,7 +11,7 @@
 
 ابتدا، باید اطلاعات مربوط به سرویس فراشناسا را در فایل پیکربندی پکیج خود (`config/iranian-validation-suite.php`) وارد کنید. بخش `kyc.drivers.farashenasa` را پیدا کرده و مقادیر زیر را بر اساس اطلاعات حساب خود و مستندات فراشناسا تنظیم نمایید:
 
-```php
+```bash
 // config/iranian-validation-suite.php
 
 'kyc' => [
@@ -49,7 +49,7 @@
         // ... سایر سرویس‌ها ...
     ],
 ],
-
+```
 توضیحات مقادیر پیکربندی:
 
     api_key: مقدار gateway-token شما از پنل فراشناسا.
@@ -63,11 +63,11 @@
     timeout, initiate_timeout, verify_timeout: برای تنظیم مهلت زمانی درخواست‌های HTTP. توجه: مطمئن شوید که مقدار max_execution_time در فایل php.ini سرور شما از این مقادیر بیشتر باشد.
 
 فراموش نکنید که مقادیر حساس مانند FARASHENASA_GATEWAY_TOKEN را در فایل .env پروژه خود تعریف کنید:
-
+```bash
 FARASHENASA_GATEWAY_TOKEN="your_actual_gateway_token_here"
 FARASHENASA_BASE_URL="[https://partai.gw.isahab.ir](https://partai.gw.isahab.ir)"
 # IRANIAN_SUITE_LIVENESS_DRIVER=farashenasa # اگر می‌خواهید به صراحت در env تعریف کنید
-
+```
 پس از تغییر فایل .env، کش کانفیگ لاراول را پاک کنید: php artisan config:clear
 ۲. استفاده از سرویس زنده‌سنجی فراشناسا
 
@@ -81,7 +81,7 @@ FARASHENASA_BASE_URL="[https://partai.gw.isahab.ir](https://partai.gw.isahab.ir)
 مثال در کنترلر
 
 در ادامه یک مثال ساده از نحوه استفاده در یک کنترلر لاراول آورده شده است.
-
+```bash
 <?php
 
 namespace App\Http\Controllers;
@@ -240,7 +240,7 @@ class UserKycController extends Controller
         }
     }
 }
-
+```
 توضیح فرم HTML و JavaScript سمت کلاینت
 
 در فایل Blade مربوط به فرم (kyc.farashenasa_form.blade.php در مثال بالا)، شما باید:
@@ -265,5 +265,3 @@ class UserKycController extends Controller
     فایل‌ها: مطمئن شوید که فایل‌های سلفی و ویدیو به درستی توسط کاربر تهیه شده و با فرمت و حجم مجاز ارسال می‌شوند.
 
     تجربه کاربری: به کاربر بازخورد مناسب در طول فرآیند (مثلاً نمایش وضعیت ضبط، پیام‌های خطا) ارائه دهید.
-
-    **پردازش پس
