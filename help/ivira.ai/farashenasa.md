@@ -258,7 +258,439 @@ class UserKycController extends Controller
 
 فیلد مخفی برای ارسال uniqueKey.
 
-کد JavaScript برای دسترسی به دوربین، گرفتن عکس و ضبط ویدیو مشابه چیزی است که قبلاً در فایل verify_form.blade.php (شناسه farashenasa_blade_view_validation_errors) با هم کار کردیم.
+کد JavaScript برای دسترسی به دوربین، گرفتن عکس و ضبط ویدیو که باید طراحی کنید مانند نمونه کد زیر:
+
+```bash
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تست احراز هویت فراشناسا (سلفی و ویدیو از دوربین)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+        }
+        .form-input, .file-input-styling {
+            @apply mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400
+                   focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500
+                   disabled:bg-slate-50 disabled:text-slate-500 disabled:border-slate-200 disabled:shadow-none
+                   invalid:border-pink-500 invalid:text-pink-600
+                   focus:invalid:border-pink-500 focus:invalid:ring-pink-500;
+        }
+        .form-label {
+            @apply block text-sm font-medium text-slate-700;
+        }
+        .btn {
+            @apply px-4 py-2 rounded-md shadow-sm text-sm font-medium transition duration-150 ease-in-out;
+        }
+        .btn-primary {
+            @apply bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500;
+        }
+        .btn-secondary {
+            @apply bg-slate-200 text-slate-700 hover:bg-slate-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400;
+        }
+        .btn-danger {
+            @apply bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500;
+        }
+        .error-message {
+            @apply text-pink-600 text-xs mt-1;
+        }
+        .camera-container { /* Renamed from video-container for clarity */
+            @apply mt-2 border border-slate-300 rounded-md overflow-hidden bg-slate-200;
+        }
+        #liveSelfieFeed, #liveVideoFeed, #capturedSelfiePreview, #recordedVideoPlayback {
+            @apply w-full h-auto block;
+            max-height: 240px; /* Adjust as needed, smaller for selfie maybe */
+        }
+        #capturedSelfiePreview {
+             border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body class="bg-slate-100">
+    <div class="container mx-auto p-4 sm:p-8 max-w-2xl">
+        <div class="bg-white shadow-xl rounded-lg p-6 sm:p-8">
+            <h1 class="text-2xl font-semibold text-slate-800 mb-6 text-center">تست احراز هویت فراشناسا (سلفی و ویدیو از دوربین)</h1>
+
+            @if(isset($initiationError) && $initiationError)
+                <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
+                    <p class="font-bold">خطا در آماده‌سازی فرم:</p>
+                    <p>{{ $initiationError }}</p>
+                </div>
+            @endif
+
+            @if ($errors->any())
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                    <strong class="font-bold">خطا در ورودی‌ها!</strong>
+                    <ul>
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
+            @if(!isset($initiationError) || (isset($textToRead) && $textToRead))
+            <form id="farashenasaForm" action="{{ route('farashenasa.test.verify') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+                @csrf
+
+                <div>
+                    <p class="form-label">کلید یکتا (Unique Key):</p>
+                    <input type="text" name="uniqueKey_display" id="uniqueKey_display" value="{{ $uniqueKey ?? old('uniqueKey') }}" class="form-input bg-slate-100" readonly>
+                    <input type="hidden" name="uniqueKey" id="formUniqueKey" value="{{ $uniqueKey ?? old('uniqueKey') }}">
+                    @error('uniqueKey') <p class="error-message">{{ $message }}</p> @enderror
+                </div>
+
+                @if(isset($textToRead) && $textToRead)
+                <div class="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4" role="alert">
+                    <p class="font-bold">متن جهت بازخوانی در ویدیو:</p>
+                    <p id="textToReadContent">{{ $textToRead }}</p>
+                    @if(isset($speakingId))
+                        <p class="text-xs mt-1">(شناسه متن: {{ $speakingId }})</p>
+                    @endif
+                </div>
+                @else
+                 <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
+                    <p class="font-bold">توجه:</p>
+                    <p>متن برای بازخوانی دریافت نشد. لطفاً از صحت پیکربندی و در دسترس بودن سرویس فراشناسا اطمینان حاصل کنید و صفحه را مجدداً بارگذاری نمایید.</p>
+                </div>
+                @endif
+
+                {{-- Fields for additionalInfo --}}
+                <div>
+                    <label for="national_code" class="form-label">کد ملی:</label>
+                    <input type="text" name="national_code" id="national_code" value="{{ old('national_code') }}" class="form-input ltr-input @error('national_code') border-pink-500 @enderror" required placeholder="xxxxxxxxxx">
+                    @error('national_code') <p class="error-message">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label for="birth_date" class="form-label">تاریخ تولد (مثال: 1365/10/12 یا 13741213):</label>
+                    <input type="text" name="birth_date" id="birth_date" value="{{ old('birth_date') }}" class="form-input ltr-input @error('birth_date') border-pink-500 @enderror" required placeholder="yyyy/mm/dd">
+                    @error('birth_date') <p class="error-message">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label for="card_serial" class="form-label">سریال کارت ملی:</label>
+                    <input type="text" name="card_serial" id="card_serial" value="{{ old('card_serial') }}" class="form-input ltr-input @error('card_serial') border-pink-500 @enderror" placeholder="مثال: 0G37000000">
+                    @error('card_serial') <p class="error-message">{{ $message }}</p> @enderror
+                </div>
+                {{-- End of fields for additionalInfo --}}
+
+                {{-- بخش گرفتن عکس سلفی --}}
+                <div class="space-y-2">
+                    <label class="form-label">عکس سلفی (از دوربین):</label>
+                    <div class="camera-container">
+                        <video id="liveSelfieFeed" autoplay muted playsinline></video>
+                        <img id="capturedSelfiePreview" src="#" alt="عکس سلفی گرفته شده" style="display:none;" class="w-full max-w-xs mx-auto mt-2 rounded"/>
+                        <canvas id="selfieCanvas" style="display:none;"></canvas> {{-- Hidden canvas for processing --}}
+                    </div>
+                    <div id="selfieError" class="error-message"></div>
+                    <div id="selfieStatus" class="text-sm text-slate-600"></div>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" id="startSelfieCameraBtn" class="btn btn-secondary">فعال‌سازی دوربین سلفی</button>
+                        <button type="button" id="captureSelfieBtn" class="btn btn-danger" style="display:none;">گرفتن عکس سلفی</button>
+                        <button type="button" id="retakeSelfieBtn" class="btn btn-secondary" style="display:none;">گرفتن مجدد عکس</button>
+                    </div>
+                    @error('selfie') <p class="error-message">{{ $message }}</p> @enderror
+                    <input type="file" name="selfie" id="selfieFile" style="display:none;">
+                </div>
+
+                {{-- بخش ضبط ویدیو --}}
+                <div class="space-y-2">
+                    <label class="form-label">ویدیو خواندن متن (از دوربین):</label>
+                    <div class="camera-container">
+                        <video id="liveVideoFeed" autoplay muted playsinline></video>
+                        <video id="recordedVideoPlayback" controls style="display:none;"></video>
+                    </div>
+                    <div id="videoError" class="error-message"></div>
+                    <div id="videoStatus" class="text-sm text-slate-600"></div>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" id="startVideoCameraBtn" class="btn btn-secondary" @if(!isset($textToRead) || !$textToRead) disabled @endif>فعال‌سازی دوربین ویدیو</button>
+                        <button type="button" id="startRecordingBtn" class="btn btn-danger" style="display:none;" @if(!isset($textToRead) || !$textToRead) disabled @endif>شروع ضبط ویدیو</button>
+                        <button type="button" id="stopRecordingBtn" class="btn btn-secondary" style="display:none;">توقف ضبط</button>
+                        <button type="button" id="retakeVideoBtn" class="btn btn-secondary" style="display:none;">ضبط مجدد ویدیو</button>
+                    </div>
+                    @error('video') <p class="error-message">{{ $message }}</p> @enderror
+                    <input type="file" name="video" id="videoFile" style="display:none;">
+                </div>
+
+                <div>
+                    <button type="submit" id="submitFormBtn" class="btn btn-primary w-full @if(!isset($textToRead) || !$textToRead) opacity-50 cursor-not-allowed @endif" @if(!isset($textToRead) || !$textToRead) disabled @endif>
+                        ارسال و احراز هویت
+                    </button>
+                </div>
+            </form>
+            @elseif(!isset($initiationError))
+             <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
+                <p class="font-bold">توجه:</p>
+                <p>متن برای بازخوانی دریافت نشد. لطفاً از صحت پیکربندی و در دسترس بودن سرویس فراشناسا اطمینان حاصل کنید و صفحه را مجدداً بارگذاری نمایید.</p>
+            </div>
+            @endif
+        </div>
+    </div>
+
+<script>
+    // --- Selfie Capture Elements ---
+    const liveSelfieFeed = document.getElementById('liveSelfieFeed');
+    const capturedSelfiePreview = document.getElementById('capturedSelfiePreview');
+    const selfieCanvas = document.getElementById('selfieCanvas');
+    const startSelfieCameraBtn = document.getElementById('startSelfieCameraBtn');
+    const captureSelfieBtn = document.getElementById('captureSelfieBtn');
+    const retakeSelfieBtn = document.getElementById('retakeSelfieBtn');
+    const selfieFileField = document.getElementById('selfieFile');
+    const selfieError = document.getElementById('selfieError');
+    const selfieStatus = document.getElementById('selfieStatus');
+    let selfieStream;
+
+    // --- Video Recording Elements (from previous code) ---
+    const liveVideoFeed = document.getElementById('liveVideoFeed'); // Note: ID conflict if not careful, using separate for selfie
+    const recordedVideoPlayback = document.getElementById('recordedVideoPlayback');
+    const startVideoCameraBtn = document.getElementById('startVideoCameraBtn');
+    const startRecordingBtn = document.getElementById('startRecordingBtn');
+    const stopRecordingBtn = document.getElementById('stopRecordingBtn');
+    const retakeVideoBtn = document.getElementById('retakeVideoBtn');
+    const videoFileField = document.getElementById('videoFile');
+    const videoError = document.getElementById('videoError');
+    const videoStatus = document.getElementById('videoStatus');
+    let videoStream; // Renamed from 'stream' to avoid conflict
+    let mediaRecorder;
+    let recordedBlobs;
+    let chosenMimeType = '';
+
+    // --- Common Elements ---
+    const submitFormBtn = document.getElementById('submitFormBtn');
+    const textToReadContent = document.getElementById('textToReadContent');
+
+
+    // === Selfie Camera Logic ===
+    async function initSelfieCamera() {
+        try {
+            const constraints = { audio: false, video: { facingMode: "user", width: { ideal: 640 }, height: {ideal: 480} } };
+            selfieStream = await navigator.mediaDevices.getUserMedia(constraints);
+            liveSelfieFeed.srcObject = selfieStream;
+            liveSelfieFeed.style.display = 'block';
+            capturedSelfiePreview.style.display = 'none';
+            selfieError.textContent = '';
+            startSelfieCameraBtn.style.display = 'none';
+            captureSelfieBtn.style.display = 'inline-block';
+            retakeSelfieBtn.style.display = 'none';
+            selfieStatus.textContent = 'دوربین سلفی فعال شد. چهره خود را در کادر قرار دهید.';
+        } catch (e) {
+            console.error('navigator.getUserMedia error (selfie):', e);
+            selfieError.textContent = 'خطا در دسترسی به دوربین سلفی: ' + e.message;
+            startSelfieCameraBtn.style.display = 'inline-block';
+            captureSelfieBtn.style.display = 'none';
+        }
+    }
+
+    function captureSelfie() {
+        if (!selfieStream || !selfieStream.active) {
+            selfieError.textContent = 'دوربین سلفی فعال نیست.';
+            return;
+        }
+        selfieCanvas.width = liveSelfieFeed.videoWidth;
+        selfieCanvas.height = liveSelfieFeed.videoHeight;
+        selfieCanvas.getContext('2d').drawImage(liveSelfieFeed, 0, 0, selfieCanvas.width, selfieCanvas.height);
+        
+        // Try to get JPEG, fallback to PNG
+        let imageFormat = 'image/jpeg';
+        let imageExtension = 'jpg';
+        let dataUrl = selfieCanvas.toDataURL(imageFormat, 0.9); // 0.9 quality for JPEG
+
+        if (!dataUrl || dataUrl.length < 100) { // Basic check if toDataURL failed for JPEG
+            console.warn('Failed to capture as JPEG, trying PNG.');
+            imageFormat = 'image/png';
+            imageExtension = 'png';
+            dataUrl = selfieCanvas.toDataURL(imageFormat);
+        }
+
+        capturedSelfiePreview.src = dataUrl;
+        capturedSelfiePreview.style.display = 'block';
+        liveSelfieFeed.style.display = 'none'; // Hide live feed after capture
+
+        // Convert dataURL to File object
+        dataUrlToBlob(dataUrl).then(blob => {
+            const selfieFileName = `captured_selfie_${Date.now()}.${imageExtension}`;
+            const selfieFile = new File([blob], selfieFileName, { type: imageFormat });
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(selfieFile);
+            selfieFileField.files = dataTransfer.files;
+            console.log(`Selfie captured: ${selfieFileName}, Type: ${imageFormat}, Size: ${selfieFile.size} bytes`);
+            selfieStatus.textContent = `عکس سلفی با فرمت ${imageExtension.toUpperCase()} گرفته شد.`;
+            captureSelfieBtn.style.display = 'none';
+            retakeSelfieBtn.style.display = 'inline-block';
+        });
+    }
+
+    function retakeSelfie() {
+        selfieFileField.value = ''; // Clear the file input
+        capturedSelfiePreview.style.display = 'none';
+        capturedSelfiePreview.src = '#';
+        liveSelfieFeed.style.display = 'block';
+        captureSelfieBtn.style.display = 'inline-block';
+        retakeSelfieBtn.style.display = 'none';
+        selfieStatus.textContent = 'برای گرفتن مجدد عکس، روی "گرفتن عکس سلفی" کلیک کنید.';
+        if (!selfieStream || !selfieStream.active) { // Re-init if stream was lost
+            initSelfieCamera();
+        }
+    }
+
+    function dataUrlToBlob(dataUrl) {
+        return fetch(dataUrl).then(res => res.blob());
+    }
+
+
+    // === Video Recording Logic (adapted) ===
+    async function initVideoCamera() {
+        try {
+            const constraints = {
+                audio: true,
+                video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }
+            };
+            videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+            liveVideoFeed.srcObject = videoStream; // Assuming same video element for preview
+            videoError.textContent = '';
+            startVideoCameraBtn.style.display = 'none';
+            startRecordingBtn.style.display = 'inline-block';
+            videoStatus.textContent = 'دوربین ویدیو فعال شد.';
+        } catch (e) {
+            console.error('navigator.getUserMedia error (video):', e);
+            videoError.textContent = 'خطا در دسترسی به دوربین یا میکروفون برای ویدیو: ' + e.message;
+            startVideoCameraBtn.style.display = 'inline-block';
+            startRecordingBtn.style.display = 'none';
+        }
+    }
+
+    function startRecording() {
+        if (!videoStream || !videoStream.active) {
+            videoError.textContent = 'دوربین ویدیو فعال نیست.';
+            initVideoCamera();
+            return;
+        }
+        recordedBlobs = [];
+        const mimeTypesToTry = [
+            'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=h264,aac', 'video/mp4',
+            'video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9,opus', 'video/webm', ''
+        ];
+        chosenMimeType = '';
+        for (const mimeType of mimeTypesToTry) {
+            if (MediaRecorder.isTypeSupported(mimeType) || mimeType === '') {
+                chosenMimeType = mimeType; break;
+            }
+        }
+        console.log('Using mimeType for video recording:', chosenMimeType);
+
+        try {
+            mediaRecorder = new MediaRecorder(videoStream, { mimeType: chosenMimeType });
+        } catch (e) {
+            console.error('Exception creating MediaRecorder (video):', e);
+            videoError.textContent = `خطا در ایجاد MediaRecorder ویدیو: ${e.toString()}`; return;
+        }
+
+        videoStatus.textContent = 'در حال ضبط ویدیو... متن را بخوانید. فرمت: ' + (chosenMimeType || 'پیش‌فرض');
+        startRecordingBtn.style.display = 'none';
+        stopRecordingBtn.style.display = 'inline-block';
+        retakeVideoBtn.style.display = 'none';
+        recordedVideoPlayback.style.display = 'none';
+        liveVideoFeed.style.display = 'block'; // Ensure correct video feed is shown
+
+        mediaRecorder.onstop = (event) => {
+            const actualMimeType = chosenMimeType || mediaRecorder.mimeType || 'video/webm';
+            const fileExtension = actualMimeType.includes('mp4') ? 'mp4' : 'webm';
+            const superBuffer = new Blob(recordedBlobs, { type: actualMimeType });
+            recordedVideoPlayback.src = window.URL.createObjectURL(superBuffer);
+            recordedVideoPlayback.style.display = 'block';
+            liveVideoFeed.style.display = 'none';
+
+            const videoFileName = `recorded_video_${Date.now()}.${fileExtension}`;
+            const videoFile = new File([superBuffer], videoFileName, { type: actualMimeType });
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(videoFile);
+            videoFileField.files = dataTransfer.files;
+            console.log(`Video file created: ${videoFileName}, Type: ${actualMimeType}, Size: ${videoFile.size} bytes`);
+            videoStatus.textContent = `ویدیو با فرمت ${fileExtension.toUpperCase()} ضبط شد.`;
+        };
+        mediaRecorder.ondataavailable = (event) => { if (event.data && event.data.size > 0) recordedBlobs.push(event.data); };
+        mediaRecorder.start();
+        console.log('Video MediaRecorder started with mimeType:', chosenMimeType, mediaRecorder);
+    }
+
+    function stopRecording() {
+        if (mediaRecorder && mediaRecorder.state !== "inactive") {
+            mediaRecorder.stop();
+            stopRecordingBtn.style.display = 'none';
+            retakeVideoBtn.style.display = 'inline-block';
+            videoStatus.textContent = 'ضبط ویدیو متوقف شد.';
+        }
+    }
+
+    function retakeVideo() {
+        recordedBlobs = [];
+        videoFileField.value = '';
+        recordedVideoPlayback.style.display = 'none'; recordedVideoPlayback.src = '';
+        liveVideoFeed.style.display = 'block';
+        startRecordingBtn.style.display = 'inline-block';
+        stopRecordingBtn.style.display = 'none';
+        retakeVideoBtn.style.display = 'none';
+        videoStatus.textContent = 'برای ضبط مجدد ویدیو، روی "شروع ضبط ویدیو" کلیک کنید.';
+        if (!videoStream || !videoStream.active) initVideoCamera();
+    }
+
+    // --- Event Listeners ---
+    if (startSelfieCameraBtn) startSelfieCameraBtn.addEventListener('click', initSelfieCamera);
+    if (captureSelfieBtn) captureSelfieBtn.addEventListener('click', captureSelfie);
+    if (retakeSelfieBtn) retakeSelfieBtn.addEventListener('click', retakeSelfie);
+
+    if (startVideoCameraBtn) startVideoCameraBtn.addEventListener('click', initVideoCamera);
+    if (startRecordingBtn) startRecordingBtn.addEventListener('click', startRecording);
+    if (stopRecordingBtn) stopRecordingBtn.addEventListener('click', stopRecording);
+    if (retakeVideoBtn) retakeVideoBtn.addEventListener('click', retakeVideo);
+    
+    // Disable buttons if textToRead is not available
+    if (!textToReadContent || textToReadContent.textContent.trim() === '') {
+        if (startSelfieCameraBtn) startSelfieCameraBtn.disabled = true;
+        if (startVideoCameraBtn) startVideoCameraBtn.disabled = true;
+        if (submitFormBtn) submitFormBtn.disabled = true;
+    }
+
+
+    // Form submission check
+    const form = document.getElementById('farashenasaForm');
+    if(form && submitFormBtn){
+        form.addEventListener('submit', function(event){
+            let hasError = false;
+            if(selfieFileField.files.length === 0){
+                selfieError.textContent = 'لطفاً ابتدا عکس سلفی را بگیرید.';
+                hasError = true;
+            } else {
+                selfieError.textContent = '';
+            }
+            if(videoFileField.files.length === 0){
+                videoError.textContent = 'لطفاً ابتدا ویدیو را ضبط کنید.';
+                hasError = true;
+            } else {
+                videoError.textContent = '';
+            }
+
+            if(hasError){
+                event.preventDefault(); 
+                return false;
+            }
+            
+            submitFormBtn.disabled = true;
+            selfieStatus.textContent = ''; // Clear status messages
+            videoStatus.textContent = 'در حال ارسال اطلاعات...';
+        });
+    }
+
+</script>
+</body>
+</html>
+
+```
 
 نکات مهم
 
